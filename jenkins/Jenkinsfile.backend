@@ -1,0 +1,133 @@
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CREDENTIALS = credentials('azure-service-principal')
+
+        AZURE_RESOURCE_GROUP = 'med-erp-dev-rg'
+        AKS_CLUSTER_NAME = 'med-erp-dev-aks'
+        ACR_NAME = 'mederpmederpdevrg'
+
+        IMAGE_NAME = 'medical-erp-backend'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+
+        AKS_NAMESPACE = 'medical-erp'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Azure Login') {
+            steps {
+                sh '''
+                    az login \
+                      --service-principal \
+                      --username "$AZURE_CREDENTIALS_USR" \
+                      --password "$AZURE_CREDENTIALS_PSW" \
+                      --tenant "$AZURE_TENANT_ID"
+
+                    az account set \
+                      --subscription "$AZURE_SUBSCRIPTION_ID"
+                '''
+            }
+        }
+
+        stage('ACR Login') {
+            steps {
+                sh '''
+                    az acr login \
+                      --name "$ACR_NAME"
+                '''
+            }
+        }
+
+        stage('Build Backend Image') {
+            steps {
+                sh '''
+                    docker build \
+                      -t "$ACR_NAME.azurecr.io/$IMAGE_NAME:$IMAGE_TAG" \
+                      ./backend
+                '''
+            }
+        }
+
+        stage('Push Backend Image') {
+            steps {
+                sh '''
+                    docker push \
+                      "$ACR_NAME.azurecr.io/$IMAGE_NAME:$IMAGE_TAG"
+                '''
+            }
+        }
+
+        stage('Get AKS Credentials') {
+            steps {
+                sh '''
+                    az aks get-credentials \
+                      --resource-group "$AZURE_RESOURCE_GROUP" \
+                      --name "$AKS_CLUSTER_NAME" \
+                      --overwrite-existing
+                '''
+            }
+        }
+
+        stage('Create Namespace') {
+            steps {
+                sh '''
+                    kubectl apply \
+                      -f k8s/namespace.yaml
+                '''
+            }
+        }
+
+        stage('Deploy Backend') {
+            steps {
+                sh '''
+                    kubectl apply \
+                      -f k8s/backend-configmap.yaml \
+                      -f k8s/backend-secret.yaml \
+                      -f k8s/backend-deployment.yaml \
+                      -f k8s/backend-service.yaml
+                '''
+            }
+        }
+
+        stage('Update Image') {
+            steps {
+                sh '''
+                    kubectl -n "$AKS_NAMESPACE" set image deployment/backend \
+                      backend="$ACR_NAME.azurecr.io/$IMAGE_NAME:$IMAGE_TAG"
+                '''
+            }
+        }
+
+        stage('Wait for Rollout') {
+            steps {
+                sh '''
+                    kubectl -n "$AKS_NAMESPACE" rollout status \
+                      deployment/backend \
+                      --timeout=180s
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'az logout || true'
+            cleanWs()
+        }
+
+        success {
+            echo "Backend deployed successfully."
+        }
+
+        failure {
+            echo "Backend deployment failed."
+        }
+    }
+}

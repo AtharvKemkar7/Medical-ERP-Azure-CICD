@@ -1,0 +1,110 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'prod'],
+            description: 'Terraform environment to deploy'
+        )
+
+        booleanParam(
+            name: 'AUTO_APPROVE',
+            defaultValue: false,
+            description: 'Automatically approve Terraform apply'
+        )
+    }
+
+    environment {
+        TF_IN_AUTOMATION = 'true'
+        TF_INPUT = 'false'
+
+        AZURE_CREDENTIALS = credentials('azure-service-principal')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Azure Login') {
+            steps {
+                sh '''
+                    az login \
+                      --service-principal \
+                      --username "$AZURE_CREDENTIALS_USR" \
+                      --password "$AZURE_CREDENTIALS_PSW" \
+                      --tenant "$AZURE_TENANT_ID"
+
+                    az account set \
+                      --subscription "$AZURE_SUBSCRIPTION_ID"
+                '''
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                dir("terraform/env/${params.ENVIRONMENT}") {
+                    sh 'terraform init'
+                }
+            }
+        }
+
+        stage('Terraform Format Check') {
+            steps {
+                sh 'terraform fmt -check -recursive terraform'
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                dir("terraform/env/${params.ENVIRONMENT}") {
+                    sh 'terraform validate'
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                dir("terraform/env/${params.ENVIRONMENT}") {
+                    sh '''
+                        terraform plan \
+                          -var-file="terraform.tfvars" \
+                          -out="tfplan"
+                    '''
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            when {
+                expression {
+                    return params.AUTO_APPROVE
+                }
+            }
+
+            steps {
+                dir("terraform/env/${params.ENVIRONMENT}") {
+                    sh 'terraform apply -auto-approve tfplan'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'az logout || true'
+            cleanWs()
+        }
+
+        success {
+            echo "Infrastructure pipeline completed successfully."
+        }
+
+        failure {
+            echo "Infrastructure pipeline failed."
+        }
+    }
+}
