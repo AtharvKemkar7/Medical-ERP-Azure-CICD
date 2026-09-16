@@ -1,6 +1,6 @@
 output "frontend_endpoint" {
   description = "Azure CDN endpoint hostname used by the frontend."
-  value       = azurerm_cdn_endpoint.frontend.host_name
+  value       = azurerm_cdn_endpoint.frontend.fqdn
 }
 
 output "cdn_endpoint_id" {
