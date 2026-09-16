@@ -1,9 +1,13 @@
 locals {
   storage_account_name = substr(
     lower(
-      regexreplace(
-        "${var.project}${var.environment}frontend",
-        "[^a-z0-9]",
+      replace(
+        replace(
+          "${var.project}${var.environment}frontend",
+          "-",
+          ""
+        ),
+        "_",
         ""
       )
     ),
@@ -13,10 +17,14 @@ locals {
 
   cdn_endpoint_name = substr(
     lower(
-      regexreplace(
-        "${var.project}-${var.environment}-frontend-cdn",
-        "[^a-z0-9-]",
-        ""
+      replace(
+        replace(
+          "${var.project}-${var.environment}-frontend-cdn",
+          "_",
+          "-"
+        ),
+        " ",
+        "-"
       )
     ),
     0,
@@ -36,12 +44,14 @@ resource "azurerm_storage_account" "frontend" {
   public_network_access_enabled   = true
   allow_nested_items_to_be_public = false
 
-  static_website {
-    index_document     = "index.html"
-    error_404_document = "index.html"
-  }
-
   tags = var.tags
+}
+
+resource "azurerm_storage_account_static_website" "frontend" {
+  storage_account_id = azurerm_storage_account.frontend.id
+
+  index_document     = "index.html"
+  error_404_document = "index.html"
 }
 
 resource "azurerm_cdn_profile" "frontend" {
