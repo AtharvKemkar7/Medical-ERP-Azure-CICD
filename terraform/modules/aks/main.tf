@@ -17,16 +17,16 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   default_node_pool {
-    name                = "system"
-    vm_size             = var.node_instance_types[0]
-    vnet_subnet_id      = var.private_subnet_ids[0]
-    zones               = ["1", "2", "3"]
-    type                = "VirtualMachineScaleSets"
+    name                 = "system"
+    vm_size              = var.node_instance_types[0]
+    vnet_subnet_id       = var.private_subnet_ids[0]
+    zones                = ["3"]
+    type                 = "VirtualMachineScaleSets"
     orchestrator_version = var.kubernetes_version
 
-    enable_auto_scaling = true
-    min_count           = var.node_min_size
-    max_count           = var.node_max_size
+    auto_scaling_enabled = true
+    min_count            = var.node_min_size
+    max_count            = var.node_max_size
 
     node_labels = {
       role = "system"
@@ -60,18 +60,17 @@ resource "azurerm_kubernetes_cluster" "main" {
 
 resource "azurerm_kubernetes_cluster_node_pool" "application" {
   name                  = "app"
-  kubernetes_cluster_id  = azurerm_kubernetes_cluster.main.id
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = var.node_instance_types[0]
   vnet_subnet_id        = var.private_subnet_ids[0]
   mode                  = "User"
-  type                  = "VirtualMachineScaleSets"
   orchestrator_version  = var.kubernetes_version
 
-  enable_auto_scaling = true
-  min_count           = var.node_min_size
-  max_count           = var.node_max_size
+  auto_scaling_enabled = true
+  min_count            = var.node_min_size
+  max_count            = var.node_max_size
 
-  zones = ["1", "2", "3"]
+  zones = ["3"]
 
   node_labels = {
     role = "application"
