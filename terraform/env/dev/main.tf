@@ -97,22 +97,8 @@ module "aks" {
   node_min_size     = 1
   node_max_size     = 3
 
-  public_endpoint      = true
+  public_endpoint     = true
   public_access_cidrs = [var.developer_ip_cidr]
-
-  tags = local.common_tags
-}
-
-module "azure_cdn" {
-  source = "../../modules/azure-cdn"
-
-  project             = local.project
-  environment         = local.environment
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-
-  domain_names   = var.domain_names
-  certificate_id = var.azure_certificate_id
 
   tags = local.common_tags
 }
@@ -123,10 +109,7 @@ module "azure_dns" {
   resource_group_name = azurerm_resource_group.main.name
   domain_name         = var.domain_name
 
-  frontend_subdomain = "www"
-  api_subdomain      = "api"
-
-  frontend_endpoint  = module.azure_cdn.frontend_endpoint
+  frontend_endpoint  = ""
   ingress_ip_address = var.ingress_ip_address
 
   tags = local.common_tags
@@ -145,7 +128,8 @@ output "aks_cluster_name" {
 }
 
 output "aks_endpoint" {
-  value = module.aks.cluster_endpoint
+  value     = module.aks.cluster_endpoint
+  sensitive = true
 }
 
 output "acr_name" {
@@ -154,10 +138,6 @@ output "acr_name" {
 
 output "acr_login_server" {
   value = module.acr.login_server
-}
-
-output "frontend_endpoint" {
-  value = module.azure_cdn.frontend_endpoint
 }
 
 output "dns_name_servers" {
