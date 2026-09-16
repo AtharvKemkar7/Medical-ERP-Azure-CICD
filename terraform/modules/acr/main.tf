@@ -5,9 +5,13 @@ locals {
   # - must be between 5 and 50 characters
   registry_name = substr(
     lower(
-      regexreplace(
-        "${var.project}${var.resource_group_name}",
-        "[^a-z0-9]",
+      replace(
+        replace(
+          "${var.project}${var.resource_group_name}",
+          "-",
+          ""
+        ),
+        "_",
         ""
       )
     ),
