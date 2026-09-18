@@ -62,7 +62,7 @@ resource "azurerm_public_ip" "nat" {
   allocation_method = "Static"
   sku               = "Standard"
 
-  zones = ["1", "2", "3"]
+  zones = ["3"]
 
   tags = var.tags
 }
@@ -74,7 +74,7 @@ resource "azurerm_nat_gateway" "main" {
 
   sku_name = "Standard"
 
-  zones = ["1", "2", "3"]
+  zones = ["3"]
 
   tags = var.tags
 }
